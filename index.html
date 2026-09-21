@@ -54,6 +54,9 @@
 
   #upload-input { display: none; }
 
+  /* ── AUDIO PLAYER (invisible) ── */
+  #ambient-audio { display: none; }
+
   /* ── ROOM ── */
   #room {
     background: url('images/karaoke_bg.jpg') center center / cover no-repeat;
@@ -221,6 +224,8 @@
   <input type="file" id="upload-input" accept="image/*">
 </div>
 
+<audio id="ambient-audio" preload="auto"></audio>
+
 <div id="room" class="screen hidden">
   <div id="room-content">
 
@@ -255,6 +260,27 @@
 
 <script>
 const YT_API_KEY = 'AIzaSyB6Sswy9ajZyFkTtN5wZ9lHJKHPTYjBR1A';
+
+// ── AMBIENT AUDIO (entry screen) ──
+const PLAYLIST = ['audio/1.mp3','audio/2.mp3','audio/3.mp3','audio/4.mp3'];
+let trackIndex = 0;
+const ambientAudio = document.getElementById('ambient-audio');
+
+function playRandom() {
+  const pick = PLAYLIST[Math.floor(Math.random() * PLAYLIST.length)];
+  ambientAudio.src = pick;
+  ambientAudio.volume = 0.5;
+  ambientAudio.loop = true;
+  ambientAudio.play().catch(() => {});
+}
+
+// Start on first user interaction (browser autoplay policy)
+document.addEventListener('click', () => {
+  if (ambientAudio.paused) playRandom();
+}, { once: true });
+
+// Also try immediately (works if browser allows)
+playRandom();
 
 // 5 rooms — each key image unlocks its own isolated room
 const ROOMS = [
@@ -296,6 +322,16 @@ fileInput.addEventListener('change', async () => {
 });
 
 async function enter() {
+  // Fade out ambient audio
+  const fadeOut = setInterval(() => {
+    if (ambientAudio.volume > 0.05) {
+      ambientAudio.volume -= 0.05;
+    } else {
+      ambientAudio.pause();
+      ambientAudio.src = '';
+      clearInterval(fadeOut);
+    }
+  }, 60);
   roomEl.classList.remove('hidden');
   setTimeout(() => doorway.classList.add('hidden'), 800);
   await startRoom();
