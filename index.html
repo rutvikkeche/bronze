@@ -213,7 +213,6 @@
 </head>
 <body>
 
-<!-- DOORWAY -->
 <div id="doorway" class="screen">
   <span id="tagline">
     IF YOU KNOW, YOU KNOW
@@ -222,7 +221,6 @@
   <input type="file" id="upload-input" accept="image/*">
 </div>
 
-<!-- ROOM -->
 <div id="room" class="screen hidden">
   <div id="room-content">
 
@@ -257,12 +255,17 @@
 
 <script>
 const YT_API_KEY = 'AIzaSyB6Sswy9ajZyFkTtN5wZ9lHJKHPTYjBR1A';
-const PASS_HASH  = '7f4889edbbc0355f47aafb356a1c835a66963d1db80efbfc28a4bc2a6ca24203';
-const ROOM_ID    = 'bronze-room-x9k2';
-const PEER_A_ID  = ROOM_ID + '-a';
-const PEER_B_ID  = ROOM_ID + '-b';
 
-// ── PASS ──
+// 5 rooms — each key image unlocks its own isolated room
+const ROOMS = [
+  { hash: '7f4889edbbc0355f47aafb356a1c835a66963d1db80efbfc28a4bc2a6ca24203', room: 'bronze-rm-red-7x2k'    }, // red
+  { hash: 'd01a4819a0054299707e3c077b26954061a476150e9804ea554b1f03e88efb61',  room: 'bronze-rm-blue-3p9m'   }, // blue
+  { hash: '40ddf14e0c40c7b2ef76a1fdafd4707b5a8cea0803d02929b3ab770b79cd9519',  room: 'bronze-rm-green-8w1q'  }, // green
+  { hash: '36fa1ecf784f5683bba2fce743a45ae65f1390dc0d5ee473fe2e5f61ebcf96f1',  room: 'bronze-rm-purple-5n4r' }, // purple
+  { hash: '930bf9cc82b70669d1ceb49681b8d5bdc9abb440cafe9e7175c212d9858dc066',  room: 'bronze-rm-yellow-2j6t' }, // yellow
+  { hash: '3ed8909e953654336eb6433e6e4d4195061b6ccba63146f34c78c8d3400d209f',  room: 'bronze-rm-pink-9s5v'   }, // pink
+];
+
 async function sha256(buf) {
   const h = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,'0')).join('');
@@ -275,11 +278,15 @@ const roomEl    = document.getElementById('room');
 
 tagline.addEventListener('click', () => fileInput.click());
 
+let assignedRoom = null;
+
 fileInput.addEventListener('change', async () => {
   const file = fileInput.files[0];
   if (!file) return;
   const hash = await sha256(await file.arrayBuffer());
-  if (hash === PASS_HASH) {
+  const match = ROOMS.find(r => r.hash === hash);
+  if (match) {
+    assignedRoom = match.room;
     enter();
   } else {
     fileInput.value = '';
@@ -424,7 +431,10 @@ async function startRoom() {
     localVideo.srcObject = localStream;
   } catch(e) { console.warn('No camera:', e); }
 
-  tryConnect(PEER_A_ID, PEER_B_ID);
+  // Each room gets two peer slots: roomId-a and roomId-b
+  const peerA = assignedRoom + '-a';
+  const peerB = assignedRoom + '-b';
+  tryConnect(peerA, peerB);
 }
 
 function tryConnect(myCandidate, theirCandidate) {
@@ -439,6 +449,7 @@ function tryConnect(myCandidate, theirCandidate) {
 
   peer.on('error', (err) => {
     if (err.type === 'unavailable-id') {
+      // Slot A taken — become slot B
       peer.destroy();
       peer = new Peer(theirCandidate);
       peer.on('open', () => {
