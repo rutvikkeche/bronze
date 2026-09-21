@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bronze</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+
+  .screen {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    transition: opacity 0.8s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  /* ── DOORWAY ── */
+  #doorway {
+    background: url('images/entry.jpg') center center / cover no-repeat;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  #tagline {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: clamp(10px, 1.1vw, 14px);
+    letter-spacing: 0.35em;
+    font-weight: 300;
+    cursor: pointer;
+    user-select: none;
+    text-transform: uppercase;
+    opacity: 0.9;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  #tagline:hover { opacity: 1; }
+  #tagline-underline {
+    width: 30px; height: 1px;
+    background: rgba(255,255,255,0.6);
+  }
+
+  #upload-input { display: none; }
+
+  /* ── ROOM ── */
+  #room {
+    background: url('images/karaoke_bg.jpg') center center / cover no-repeat;
+  }
+
+  #room-content {
+    display: grid;
+    grid-template-columns: 1fr 2.2fr 1fr;
+    align-items: center;
+    padding: 5vh 3vw;
+    gap: 2vw;
+    height: 100%;
+  }
+
+  .webcam-wrap {
+    aspect-ratio: 4/3;
+    overflow: hidden;
+    border-radius: 2px;
+    background: rgba(0,0,0,0.55);
+    position: relative;
+  }
+  .webcam-wrap video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: scaleX(-1);
+  }
+  .webcam-label {
+    position: absolute;
+    bottom: 8px; left: 10px;
+    color: rgba(255,255,255,0.4);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .no-peer {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.15);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  #yt-center {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: stretch;
+  }
+
+  #player-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  #player-wrap iframe, #player-wrap > div {
+    width: 100% !important;
+    height: 100% !important;
+    border: none;
+    display: block;
+  }
+
+  #search-container { position: relative; }
+  #search-wrap { display: flex; align-items: center; }
+
+  #search-input {
+    flex: 1;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-right: none;
+    border-radius: 2px 0 0 2px;
+    color: #fff;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    padding: 9px 14px;
+    outline: none;
+    font-family: inherit;
+    font-weight: 300;
+  }
+  #search-input::placeholder { color: rgba(255,255,255,0.3); }
+  #search-input:focus { border-color: rgba(255,255,255,0.3); }
+
+  #search-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 0 2px 2px 0;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-family: inherit;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  #search-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+  #search-results {
+    position: absolute;
+    left: 0; right: 0;
+    top: calc(100% + 2px);
+    background: rgba(10,0,0,0.92);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 2px;
+    z-index: 100;
+    max-height: 280px;
+    overflow-y: auto;
+    backdrop-filter: blur(12px);
+  }
+  #search-results:empty { display: none; }
+
+  .result-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .result-item:last-child { border-bottom: none; }
+  .result-item:hover { background: rgba(255,255,255,0.07); }
+
+  .result-thumb {
+    width: 80px; height: 45px;
+    object-fit: cover;
+    flex-shrink: 0;
+    border-radius: 1px;
+  }
+
+  .result-title {
+    color: rgba(255,255,255,0.85);
+    font-size: 12px;
+    line-height: 1.4;
+    font-weight: 300;
+    letter-spacing: 0.02em;
+  }
+
+  #search-results::-webkit-scrollbar { width: 3px; }
+  #search-results::-webkit-scrollbar-track { background: transparent; }
+  #search-results::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+
+  #status-dot {
+    position: fixed;
+    bottom: 18px; right: 20px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    transition: background 0.4s;
+  }
+  #status-dot.connected { background: rgba(120,220,120,0.5); }
+  #status-dot.waiting   { background: rgba(255,200,80,0.4); }
+</style>
+</head>
+<body>
+
+<!-- DOORWAY -->
+<div id="doorway" class="screen">
+  <span id="tagline">
+    IF YOU KNOW, YOU KNOW
+    <span id="tagline-underline"></span>
+  </span>
+  <input type="file" id="upload-input" accept="image/*">
+</div>
+
+<!-- ROOM -->
+<div id="room" class="screen hidden">
+  <div id="room-content">
+
+    <div class="webcam-wrap">
+      <video id="local-video" autoplay muted playsinline></video>
+      <span class="webcam-label">you</span>
+    </div>
+
+    <div id="yt-center">
+      <div id="player-wrap">
+        <div id="yt-player"></div>
+      </div>
+      <div id="search-container">
+        <div id="search-wrap">
+          <input id="search-input" type="text" placeholder="search for a song..." autocomplete="off" spellcheck="false">
+          <button id="search-btn">↵</button>
+        </div>
+        <div id="search-results"></div>
+      </div>
+    </div>
+
+    <div class="webcam-wrap">
+      <video id="peer-video" autoplay playsinline></video>
+      <div class="no-peer" id="no-peer-msg">waiting...</div>
+      <span class="webcam-label">them</span>
+    </div>
+
+  </div>
+</div>
+
+<div id="status-dot" class="waiting"></div>
+
+<script>
+const YT_API_KEY = 'AIzaSyB6Sswy9ajZyFkTtN5wZ9lHJKHPTYjBR1A';
+const PASS_HASH  = '7f4889edbbc0355f47aafb356a1c835a66963d1db80efbfc28a4bc2a6ca24203';
+const ROOM_ID    = 'bronze-room-x9k2';
+const PEER_A_ID  = ROOM_ID + '-a';
+const PEER_B_ID  = ROOM_ID + '-b';
+
+// ── PASS ──
+async function sha256(buf) {
+  const h = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+const tagline   = document.getElementById('tagline');
+const fileInput = document.getElementById('upload-input');
+const doorway   = document.getElementById('doorway');
+const roomEl    = document.getElementById('room');
+
+tagline.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  const hash = await sha256(await file.arrayBuffer());
+  if (hash === PASS_HASH) {
+    enter();
+  } else {
+    fileInput.value = '';
+    doorway.style.opacity = '0.3';
+    setTimeout(() => doorway.style.opacity = '1', 350);
+  }
+});
+
+async function enter() {
+  roomEl.classList.remove('hidden');
+  setTimeout(() => doorway.classList.add('hidden'), 800);
+  await startRoom();
+}
+
+// ── YOUTUBE ──
+let ytPlayer  = null;
+let ytReady   = false;
+let pendingId = null;
+let isSyncing = false;
+let dataConn  = null;
+
+window.onYouTubeIframeAPIReady = () => {
+  ytPlayer = new YT.Player('yt-player', {
+    height: '100%', width: '100%',
+    playerVars: { autoplay: 0, controls: 1, rel: 0, modestbranding: 1, iv_load_policy: 3 },
+    events: {
+      onReady: () => {
+        ytReady = true;
+        if (pendingId) loadVideo(pendingId);
+      },
+      onStateChange: (e) => {
+        if (isSyncing || !dataConn) return;
+        const msg = {
+          action: e.data === YT.PlayerState.PLAYING ? 'play'
+                : e.data === YT.PlayerState.PAUSED  ? 'pause' : null,
+          time: ytPlayer.getCurrentTime()
+        };
+        if (msg.action) sendData(msg);
+      }
+    }
+  });
+};
+
+function loadVideo(videoId) {
+  if (!ytReady) { pendingId = videoId; return; }
+  ytPlayer.loadVideoById(videoId);
+  sendData({ action: 'load', videoId });
+}
+
+function handleYTSync(payload) {
+  if (!ytReady || !ytPlayer) return;
+  isSyncing = true;
+  try {
+    if (payload.action === 'load')  ytPlayer.loadVideoById(payload.videoId);
+    if (payload.action === 'play')  {
+      if (Math.abs(ytPlayer.getCurrentTime() - payload.time) > 1.5)
+        ytPlayer.seekTo(payload.time, true);
+      ytPlayer.playVideo();
+    }
+    if (payload.action === 'pause') {
+      ytPlayer.seekTo(payload.time, true);
+      ytPlayer.pauseVideo();
+    }
+  } finally {
+    setTimeout(() => isSyncing = false, 500);
+  }
+}
+
+// ── SEARCH ──
+const searchInput   = document.getElementById('search-input');
+const searchBtn     = document.getElementById('search-btn');
+const searchResults = document.getElementById('search-results');
+
+async function doSearch() {
+  const q = searchInput.value.trim();
+  if (!q) return;
+  searchResults.innerHTML = '';
+  try {
+    const res  = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(q)}&key=${YT_API_KEY}`
+    );
+    const data = await res.json();
+    (data.items || []).forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'result-item';
+      el.innerHTML = `
+        <img class="result-thumb" src="${item.snippet.thumbnails.default.url}" loading="lazy">
+        <span class="result-title">${item.snippet.title}</span>`;
+      el.addEventListener('click', () => {
+        loadVideo(item.id.videoId);
+        searchResults.innerHTML = '';
+        searchInput.value = '';
+      });
+      searchResults.appendChild(el);
+    });
+  } catch(e) { console.error(e); }
+}
+
+searchBtn.addEventListener('click', doSearch);
+searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+document.addEventListener('click', e => {
+  if (!e.target.closest('#search-container')) searchResults.innerHTML = '';
+});
+
+// ── PEERJS ──
+const localVideo = document.getElementById('local-video');
+const peerVideo  = document.getElementById('peer-video');
+const noPeerMsg  = document.getElementById('no-peer-msg');
+const statusDot  = document.getElementById('status-dot');
+let localStream  = null;
+let peer         = null;
+
+function sendData(obj) {
+  if (dataConn && dataConn.open) dataConn.send(JSON.stringify(obj));
+}
+
+function onDataConn(conn) {
+  dataConn = conn;
+  conn.on('data', d => handleYTSync(JSON.parse(d)));
+}
+
+function onMediaConn(call) {
+  call.answer(localStream);
+  call.on('stream', remoteStream => {
+    peerVideo.srcObject = remoteStream;
+    noPeerMsg.style.display = 'none';
+    statusDot.className = 'connected';
+  });
+  call.on('close', () => {
+    peerVideo.srcObject = null;
+    noPeerMsg.style.display = 'flex';
+    statusDot.className = 'waiting';
+  });
+}
+
+async function startRoom() {
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js');
+  loadScript('https://www.youtube.com/iframe_api');
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideo.srcObject = localStream;
+  } catch(e) { console.warn('No camera:', e); }
+
+  tryConnect(PEER_A_ID, PEER_B_ID);
+}
+
+function tryConnect(myCandidate, theirCandidate) {
+  peer = new Peer(myCandidate);
+
+  peer.on('open', () => {
+    statusDot.className = 'waiting';
+    peer.on('call', onMediaConn);
+    peer.on('connection', onDataConn);
+    attemptConnect(theirCandidate);
+  });
+
+  peer.on('error', (err) => {
+    if (err.type === 'unavailable-id') {
+      peer.destroy();
+      peer = new Peer(theirCandidate);
+      peer.on('open', () => {
+        statusDot.className = 'waiting';
+        peer.on('call', onMediaConn);
+        peer.on('connection', onDataConn);
+        attemptConnect(myCandidate);
+      });
+      peer.on('error', console.error);
+    } else { console.error(err); }
+  });
+}
+
+function attemptConnect(theirId) {
+  const tryCall = () => {
+    if (dataConn && dataConn.open) return;
+    const dc = peer.connect(theirId, { reliable: true });
+    dc.on('open', () => onDataConn(dc));
+    if (localStream) {
+      const call = peer.call(theirId, localStream);
+      call.on('stream', remoteStream => {
+        peerVideo.srcObject = remoteStream;
+        noPeerMsg.style.display = 'none';
+        statusDot.className = 'connected';
+      });
+      call.on('error', () => {});
+    }
+  };
+  tryCall();
+  const interval = setInterval(() => {
+    if (dataConn && dataConn.open) { clearInterval(interval); return; }
+    tryCall();
+  }, 3000);
+}
+
+function loadScript(src) {
+  return new Promise(resolve => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve;
+    document.head.appendChild(s);
+  });
+}
+</script>
+</body>
+</html>
